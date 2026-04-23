@@ -67,6 +67,34 @@ response = memory_ext.ask("What did Lencho ask for in his letter to God?")
 print(response["final_answer"])
 ```
 
+### Advanced Memory Management
+
+The extension includes built-in features to easily save, load, monitor, and clear the AI's memory without touching any databases.
+
+You can set the system to **automatically save and load** its brain by simply turning on `auto_save` in the config:
+
+```python
+config = ExtensionConfig(
+    llm_model="qwen2.5:1.5b",
+    auto_save=True,               # <--- Turns on automatic saving/loading
+    save_filepath="my_brain.pkl"  # <--- Where to save the brain
+)
+memory_ext = RAGMemoryExtension(config)
+
+# Now, every time you ingest a PDF or ask a question, it automatically updates the file!
+memory_ext.ingest_pdfs(["test_document/biology.pdf"])
+```
+
+You can also trigger these actions manually:
+
+```python
+# Print a beautiful summary of ingested PDFs, cache size, and memory usage
+memory_ext.summary()
+
+# Completely wipe the memory, cache, graph, and document history
+memory_ext.clear()
+```
+
 ### Try the Playground
 
 We have a Streamlit app to interactively test the basic RAG vs Enhanced RAG side by side:
