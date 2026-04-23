@@ -1,4 +1,4 @@
-# Enhanced RAG with Failure-Driven Learning (FDL)
+# A.R.U.A.G (Adaptive Retrieval Using Adaptation + Generation)
 
 This repository contains an autonomous memory system that extends standard Retrieval-Augmented Generation (RAG) by giving it a "cognitive stack". It features Ebbinghaus decay, Semantic Caching, GraphRAG, and Failure-Driven Learning (FDL) to continuously improve from its own interactions without needing human-labeled ground truth.
 
@@ -41,8 +41,8 @@ Before running the project, your friend will need:
 Once the prerequisites are met, they can clone the repository and install it as a Python package.
 
 ```bash
-git clone https://github.com/yourusername/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/SkorpionOP/A.R.U.A.G.git
+cd A.R.U.A.G
 pip install -e .
 ```
 
