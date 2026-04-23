@@ -1,4 +1,5 @@
 import os
+import pickle
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 
@@ -107,6 +108,42 @@ class RAGMemoryExtension:
             "cache_stats": self.cache.stats(),
             "graph_stats": self.graph.stats() if self.graph._built else None
         }
+
+    def save(self, filepath: str = "brain.pkl"):
+        """Saves the entire brain (memory, graph, and cache) to your hard drive so it remembers after a restart."""
+        state = {
+            "memories": self.memory.memories,
+            "query_outcomes": self.memory._query_outcomes,
+            "failure_note_ids": self.memory._failure_note_ids,
+            "cache_entries": self.cache._entries,
+            "graph_nodes": self.graph.nodes if self.graph._built else None,
+            "graph_edges": self.graph.edges if self.graph._built else None
+        }
+        with open(filepath, "wb") as f:
+            pickle.dump(state, f)
+        print(f"Brain successfully saved to {filepath}")
+
+    def load(self, filepath: str = "brain.pkl") -> bool:
+        """Loads a previously saved brain from your hard drive."""
+        if not os.path.exists(filepath):
+            print(f"No saved brain found at {filepath}. Starting fresh.")
+            return False
+            
+        with open(filepath, "rb") as f:
+            state = pickle.load(f)
+            
+        self.memory.memories = state["memories"]
+        self.memory._query_outcomes = state["query_outcomes"]
+        self.memory._failure_note_ids = state["failure_note_ids"]
+        self.cache._entries = state["cache_entries"]
+        
+        if state["graph_nodes"] is not None:
+            self.graph.nodes = state["graph_nodes"]
+            self.graph.edges = state["graph_edges"]
+            self.graph._built = True
+            
+        print(f"Brain successfully loaded from {filepath}")
+        return True
 
 # Example usage string if someone runs this directly
 if __name__ == "__main__":
