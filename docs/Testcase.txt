@@ -1,0 +1,266 @@
+RAG MEMORY SYSTEM — PROTOTYPE A TEST CASES
+==========================================
+Document: Testcase.txt
+Purpose : Manual test-case specification for the RAG Comparison evaluation
+          (proto1.py). Each section describes what the automated test covers,
+          the ground-truth expectations, and the pass/fail criteria.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — DATA GENERATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TC-01: User Profile Coverage
+  Input : TestDataGenerator.generate_dialogues(count=50, turns=10)
+  Expect: Each DialogueTest has exactly 7 preference keys:
+            name, email, plan, preferred_contact, account_status,
+            language, loyalty_tier
+  Pass  : All 50 dialogues contain all 7 keys.
+  Fail  : Any missing key.
+
+TC-02: Turn Diversity
+  Input : _build_templates returns 12 distinct (query, answer) pairs.
+  Expect: 10 turns cycle through 10 of the 12 templates (index % 12).
+  Pass  : No two consecutive turns have identical user_input text.
+  Fail  : Adjacent turns share the same query string.
+
+TC-03: Error Injection Rate
+  Input : 50 dialogues × 10 turns = 500 turns.
+  Expect: Approximately 10 % of turns have outcome="failure" in raw data
+          (before agent runs them). Acceptable range: 5 %–15 %.
+  Pass  : 25–75 turns are pre-marked as failures.
+  Fail  : < 25 or > 75 failure turns.
+
+TC-04: Wrong-Answer Plausibility
+  Input : TestDataGenerator._wrong_answer(correct, prefs)
+  Expect: Returned value is never equal to the correct answer (case-insensitive).
+  Pass  : For 100 random calls, none return the correct value.
+  Fail  : Any call returns the correct value.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — MEMORY RETRIEVAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TC-05: Exact-Content Retrieval
+  Input : Store "name: Alice", then retrieve("name: Alice", k=1)
+  Expect: Top-1 result is the stored memory with similarity ≈ 1.0.
+  Pass  : Returned memory content matches stored string exactly.
+  Fail  : Different memory returned, or score < 0.95.
+
+TC-06: Semantic Retrieval (Partial Match)
+  Input : Store "email: alice@example.com".
+          Retrieve with query "What is Alice's email?", k=1.
+  Expect: The stored memory is in top-3 results.
+  Pass  : Memory with "email" is found anywhere in top-3.
+  Fail  : Not found in top-3.
+
+TC-07: Decay Reduces Score
+  Input : EnhancedMemory. Store a memory with decay_rate=0.1.
+          advance_time(30 days). Retrieve same query.
+  Expect: Score after 30 days < score immediately after storing.
+          Specifically, strength = importance * e^(-0.1*30) ≈ 0.05.
+  Pass  : Retrieved score drops by ≥ 50 % compared to t=0.
+  Fail  : Score unchanged after advancing time.
+
+TC-08: Suppressed Memories Excluded
+  Input : Store a memory, then set mem.suppressed = True.
+          Retrieve using the same query.
+  Expect: Suppressed memory does NOT appear in results.
+  Pass  : Result list is empty (assuming only that one memory exists).
+  Fail  : Suppressed memory appears in results.
+
+TC-09: decay_enabled=False Uses Raw Similarity
+  Input : SimpleRAGMemory. Store a memory.
+          retrieve(query, decay_enabled=False).
+  Expect: Score is purely cosine similarity (no decay multiplier).
+  Pass  : Score is identical on two consecutive calls at t=0 and t+10 days.
+  Fail  : Score changes without decay flag.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — FAILURE-DRIVEN LEARNING (FDL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TC-10: Failure Increments failure_count
+  Input : EnhancedMemory. Store a memory (mem_id).
+          log_interaction(failure_interaction, [mem_id])
+  Expect: mem.failure_count == 1 after one failure log.
+  Pass  : failure_count incremented exactly once.
+  Fail  : failure_count stays 0 or increments more than once.
+
+TC-11: Success Increments success_count and Refreshes last_accessed
+  Input : EnhancedMemory. Store a memory (mem_id), advance_time(5).
+          log_interaction(success_interaction, [mem_id])
+  Expect: mem.success_count == 1, mem.last_accessed == current_time.
+  Pass  : Both conditions true.
+  Fail  : last_accessed not updated on success.
+
+TC-12: Failure Creates Explicit Failure Record
+  Input : EnhancedMemory, 0 memories stored.
+          log_interaction(failure_interaction, [])
+  Expect: A new memory with category="failure" is added to the store.
+  Pass  : len(memories) == 1 and the new memory.category == "failure".
+  Fail  : No new memory created, or category is not "failure".
+
+TC-13: Error Repetition Tracked Per Query
+  Input : Log two failure interactions with identical user_input.
+  Expect: error_log["<query>"] == ["failure", "failure"]
+  Pass  : List has exactly two "failure" entries.
+  Fail  : Only one entry, or entries missing.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — PRUNING (EBBINGHAUS DECAY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TC-14: Decayed Memory Is Pruned
+  Input : EnhancedMemory. Store a memory (importance=0.9, decay_rate=0.5).
+          advance_time(20 days). prune().
+  Expect: Memory is suppressed (strength ≈ 0.9 * e^(-10) < 0.0001 < 0.25).
+  Pass  : mem.suppressed == True, prune() returns count ≥ 1.
+  Fail  : Memory still active after severe decay.
+
+TC-15: Healthy Memory Is NOT Pruned
+  Input : EnhancedMemory. Store a memory (importance=0.95, decay_rate=0.02).
+          advance_time(2 days). prune().
+  Expect: strength ≈ 0.95 * e^(-0.04) ≈ 0.91 > 0.25 → NOT suppressed.
+  Pass  : mem.suppressed == False.
+  Fail  : Healthy memory suppressed.
+
+TC-16: Low-Worth Memory Is Pruned After Enough Failures
+  Input : EnhancedMemory. Store a non-preference memory.
+          Log 3 failures against it. success_rate() = 0 < 0.17. prune().
+  Expect: Memory suppressed.
+  Pass  : mem.suppressed == True.
+  Fail  : Memory still active despite 0 % success rate.
+
+TC-17: user_preference Category Exempt from Worth-Based Pruning
+  Input : EnhancedMemory. Store a "user_preference" memory.
+          Log 3 failures, success_rate = 0. prune().
+  Expect: Memory NOT suppressed (preference memories are protected).
+  Pass  : mem.suppressed == False.
+  Fail  : Preference memory pruned due to low worth.
+
+TC-18: Memory Size Reduced After Pruning
+  Input : EnhancedMemory. Store 10 memories.
+          Force-decay 6 of them below threshold. prune().
+  Expect: get_memory_size_kb() reflects only 4 active memories.
+  Pass  : memory_size_kb == 4 * 1.5 == 6.0 KB.
+  Fail  : Size unchanged after pruning.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — END-TO-END BENCHMARK (SUCCESS CRITERIA)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TC-19: Accuracy ≥ 85 % (Enhanced)
+  Input : Run RAGAgent(EnhancedMemory) over 50 dialogues × 10 turns.
+  Expect: enhanced_metrics["accuracy"] >= 0.85
+  Rationale: With 92 % hit accuracy and reliable retrieval, end-to-end
+             accuracy should comfortably exceed 85 %.
+
+TC-20: Error Repetition ≤ 20 % (Enhanced)
+  Input : Same run as TC-19. Track how many queries that failed once
+          fail again in subsequent turns.
+  Expect: enhanced_metrics["error_repetition"] <= 0.20
+  Rationale: FDL logs failures, stores failure records, and updates
+             success counts. Queries that previously led to errors should
+             be matched by failure-category memories on the next hit,
+             prompting a corrective response.
+
+TC-21: Memory Size Reduction ≥ 30 % vs Simple RAG (Enhanced)
+  Input : Compare enhanced_metrics["memory_size_kb"] to
+          simple_rag_metrics["memory_size_kb"] after all dialogues.
+  Expect: (1 - enhanced_kb / rag_kb) >= 0.30
+  Rationale: Periodic prune() calls (every 5 turns) with a meaningful
+             decay rate (λ=0.02 for preferences, λ=0.10 for failures)
+             should suppress stale/low-worth memories, reducing footprint.
+
+TC-22: Accuracy Ordering
+  Expect: enhanced_accuracy > simple_rag_accuracy > no_memory_accuracy
+  Rationale: Memory always helps; FDL should make the enhanced system
+             marginally better than plain RAG.
+
+TC-23: Error Repetition Ordering
+  Expect: enhanced_error_rep < simple_rag_error_rep < no_memory_error_rep
+  Rationale: Without memory, every query is a coin-flip; with plain RAG,
+             retrieval helps but errors still repeat; with FDL, errors
+             are actively learned from and avoided.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — EDGE CASES & REGRESSION TESTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TC-24: Empty Memory Retrieve Returns []
+  Input : SimpleRAGMemory() (no stores). retrieve("anything", k=3)
+  Expect: Returns empty list [].
+  Pass  : No exception, returns [].
+  Fail  : Exception or non-empty list.
+
+TC-25: Retrieve k > Available Memories
+  Input : Store 2 memories. retrieve(query, k=5).
+  Expect: At most 2 results returned (no crash, no padding).
+  Pass  : len(results) == 2.
+  Fail  : Exception or len > 2.
+
+TC-26: Duplicate Store Does Not Merge
+  Input : Store "email: alice@example.com" twice.
+  Expect: Two separate entries in memory dict (different UUIDs).
+  Pass  : len(memories) == 2.
+  Fail  : Duplicate silently merged into one.
+
+TC-27: prune() on Empty Store Returns 0
+  Input : EnhancedMemory() (no stores). prune().
+  Expect: Returns 0, no exception.
+  Pass  : Return value == 0, no crash.
+  Fail  : Exception thrown.
+
+TC-28: advance_time Does Not Affect SimpleRAGMemory
+  Input : SimpleRAGMemory. Store a memory. retrieve at t=0 and t+30 days
+          (manually adjusting last_accessed). decay_enabled=False (default).
+  Expect: Scores identical (SimpleRAGMemory never applies decay).
+  Pass  : Scores match to 6 decimal places.
+  Fail  : Score differs.
+
+TC-29: Serialisation — JSON Output Is Valid
+  Input : Run main(). Read rag_comparison_results.json.
+  Expect: Valid JSON with keys ["no_memory", "simple_rag", "enhanced"],
+          each containing ["accuracy", "error_repetition", "memory_size_kb",
+          "total_turns", "total_success", "total_failure"].
+  Pass  : json.load() succeeds, all keys present, all values numeric.
+  Fail  : JSON parse error or missing key.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUMMARY TABLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ID     | Category          | Pass Criterion
+-------|-------------------|-------------------------------------------------
+TC-01  | Data Gen          | All 7 preference keys present in every dialogue
+TC-02  | Data Gen          | No two consecutive turns share query text
+TC-03  | Data Gen          | 5–15 % pre-error turns (25–75 out of 500)
+TC-04  | Data Gen          | Wrong answer ≠ correct answer (100 samples)
+TC-05  | Retrieval         | Exact content → similarity ≈ 1.0
+TC-06  | Retrieval         | Partial query → correct memory in top-3
+TC-07  | Decay             | Score drops ≥ 50 % after 30 days advance
+TC-08  | Decay             | Suppressed memories excluded from retrieve()
+TC-09  | Retrieval         | decay_enabled=False → score unchanged over time
+TC-10  | FDL               | failure_count += 1 per logged failure
+TC-11  | FDL               | success_count += 1, last_accessed refreshed
+TC-12  | FDL               | Failure auto-stores a "[FAILURE]" memory
+TC-13  | FDL               | error_log tracks per-query failure sequences
+TC-14  | Pruning           | Severely decayed memory gets suppressed
+TC-15  | Pruning           | Healthy memory not suppressed
+TC-16  | Pruning           | Low-worth (0 % SR) non-preference → suppressed
+TC-17  | Pruning           | user_preference exempt from worth-based prune
+TC-18  | Pruning           | memory_size_kb reflects only active memories
+TC-19  | End-to-End        | Enhanced accuracy ≥ 85 %
+TC-20  | End-to-End        | Enhanced error repetition ≤ 20 %
+TC-21  | End-to-End        | Memory size reduced ≥ 30 % vs Simple RAG
+TC-22  | End-to-End        | Accuracy ordering: Enhanced > RAG > None
+TC-23  | End-to-End        | Error rep ordering: Enhanced < RAG < None
+TC-24  | Edge Case         | Empty store → retrieve returns []
+TC-25  | Edge Case         | k > stored count → no crash, at most k results
+TC-26  | Edge Case         | Duplicate store → two separate entries
+TC-27  | Edge Case         | prune() on empty store → returns 0
+TC-28  | Edge Case         | SimpleRAG ignores time (score stable)
+TC-29  | Serialisation     | JSON output valid, all keys numeric
+
+Total: 29 test cases
+Critical (must-pass for Prototype A): TC-19, TC-20, TC-21

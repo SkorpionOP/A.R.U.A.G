@@ -1,0 +1,246 @@
+@startuml RAG_FDL_Pipeline
+!theme plain
+skinparam backgroundColor #1a1a2e
+skinparam defaultFontColor #e0e0e0
+skinparam defaultFontSize 11
+skinparam roundcorner 8
+skinparam ArrowColor #4ecca3
+skinparam NoteBackgroundColor #2a2a4e
+skinparam NoteBorderColor #4ecca3
+skinparam NoteFontColor #e0e0e0
+
+skinparam actor {
+  BackgroundColor #4ecca3
+  BorderColor #2a2a4e
+  FontColor #1a1a2e
+}
+skinparam package {
+  BackgroundColor #2a2a4e
+  BorderColor #4ecca3
+  FontColor #4ecca3
+}
+skinparam component {
+  BackgroundColor #16213eQ
+  BorderColor #4ecca3
+  FontColor #e0e0e0
+}
+skinparam database {
+  BackgroundColor #16213e
+  BorderColor #e8a838
+  FontColor #e8a838
+}
+skinparam rectangle {
+  BackgroundColor #16213e
+  BorderColor #e04848
+  FontColor #e0e0e0
+}
+
+' ============================================================
+' ACTORS
+' ============================================================
+actor User
+actor "Ollama\n(qwen2.5:1.5b)" as LLM
+
+' ============================================================
+' PACKAGE: INGESTION LAYER
+' ============================================================
+package "Ingestion Layer  [pdf_processor.py + embedder.py]" {
+  component "PDF Loader\nextract_text_from_pdf()" as PDFLoader
+  component "Text Chunker\nchunk_text(size=250, overlap=30)" as Chunker
+  component "TF-IDF Embedder\nEmbedder.fit(corpus)\nEmbedder.embed(text)" as Embedder
+  note bottom of Embedder
+    Fits vocabulary on full corpus
+    → context-aware term weights
+    Dimension = |vocab|
+  end note
+}
+
+' ============================================================
+' PACKAGE: MEMORY LAYER
+' ============================================================
+package "Memory Layer  [memory.py]" {
+
+  package "SimpleRAGMemory" {
+    database "Flat Store\nDict[id → Memory]" as SimpleStore
+    component "retrieve(query, k)\ncosine similarity only\nno decay / no FDL" as SimpleRetrieve
+  }
+
+  package "EnhancedMemory  (extends SimpleRAGMemory)" {
+    database "Dual-Pool Store\n[learned_fact] ← doc chunks\n[failure_note] ← FDL corrections\n[user_preference]" as EnhancedStore
+
+    package "Retrieval Engine" {
+      component "_compute_priority(mem, sim, t)\n= sim × strength × recency_boost × confidence" as Priority
+      component "FIX2: Confidence Gate\nmem.confidence_score ≥ 0.35\nelse SKIP" as ConfGate
+      component "FIX3: Hard Cap\nmax 1 memory slot\nremaining slots → doc chunks" as HardCap
+      component "FIX4: Doc Arbitration\navg cosine(mem, doc_chunks) ≥ 0.02\nelse DISCARD memory" as DocArb
+    }
+
+    package "Ebbinghaus Decay  (FIX 5)" {
+      component "current_strength(t)\n= importance × exp(−λ × days)\nlearned_fact: λ=0.20\nfailure_note: λ=1.00\nuser_pref:    λ=0.10" as Decay
+      component "prune()\nstrength < 0.40 → suppress\nworth < 0.30 (≥2 failures) → suppress\nfailure_note confidence < 0.15 → suppress" as Prune
+    }
+
+    package "Confidence Tracking  (FIX 2)" {
+      component "On Success:\n  confidence += 0.10\n  importance  += 0.02" as ConfBoost
+      component "On Failure:\n  confidence -= 0.15\n  importance  -= 0.05" as ConfPenalty
+    }
+
+    package "FDL Storage  (FIX 1 + FIX 3)" {
+      component "validate_correction(answer, doc_embs)\navg cosine(answer, doc_chunks) ≥ 0.02\nREJECT if hallucination detected" as CorrValid
+      component "_extract_concept(question)\nStrip prefixes & fillers\n'How many FR?' → 'fundamental rights count'" as ConceptExtract
+      component "Upsert Failure Note\nconcept: answer\nstarts at confidence=0.40\nmust earn trust via reuse" as FDLStore
+    }
+  }
+}
+
+' ============================================================
+' PACKAGE: AGENT LAYER
+' ============================================================
+package "Agent Layer  [agent.py]" {
+  component "FIX2: _rewrite_query(q)\nExpand abbreviations\nAdd context ('Indian Constitution')\nFallback to original on LLM error" as QueryRewrite
+  component "FIX1: retrieve(k=5)\nFrom memory store" as Retrieve5
+  component "FIX1: _rerank(query, candidates)\nLLM reads all 5 chunks\nPicks best 2 by relevance" as Rerank
+  component "FIX4: Answer Constraint Prompt\n'Answer in ONE FACTUAL LINE.\nNo explanation.'" as ConstraintPrompt
+  component "System-2 extract_correction(q)\nMap-Reduce: k=15 chunks\nOne chunk at a time → LLM\nReturn first NOT_FOUND-free answer" as Sys2Extract
+}
+
+' ============================================================
+' PACKAGE: EVALUATOR LAYER
+' ============================================================
+package "Evaluator Layer  [evaluator.py]" {
+  component "check_faithfulness(q, answer, context)\nPrompt → VERDICT: YES/NO\n         CONFIDENCE: 0.0-1.0\n         REASON: sentence" as FaithCheck
+  component "rephrase_question(q)\nGenerate alternative phrasing\nfor consistency check" as Rephrase
+  component "check_consistency(q, a1, a2)\nDo both answers agree?\nCONSISTENT: YES/NO" as ConsistCheck
+  component "extract_from_chunk(q, chunk)\nSingle-chunk extractor\nNOT_FOUND = no match" as ChunkExtract
+}
+
+' ============================================================
+' PACKAGE: FDL ENGINE (ORCHESTRATOR)
+' ============================================================
+package "FDL Engine  [fdl_engine.py]" {
+  component "STEP 1\nSystem-1 Fast Answer\nAgent.generate_response(decay=True)" as Step1
+  component "_build_doc_context(mids)\nFIX4: ONLY learned_fact chunks\nMemory notes excluded from truth eval" as BuildDocCtx
+  component "STEP 2\nFaithfulness Check\nJudge.check_faithfulness(\n  q, answer, DOC_ONLY_context)" as Step2
+  component "STEP 3\nSystem-2 Map-Reduce\nAgent.extract_correction(q)" as Step3
+  component "_validate_correction(answer, doc_embs)\nFIX1: reject if avg_sim < 0.02\nPrevents poisoning memory with hallucinations" as ValidateCorr
+  component "STEP 4\nConsistency Check\nJudge.rephrase() → re-ask → compare" as Step4
+  component "STEP 5\nLog Outcome\nPass doc_embeddings for validation" as Step5
+}
+
+' ============================================================
+' PACKAGE: BENCHMARK  [test_custom_qa.py]
+' ============================================================
+package "Benchmark  [test_custom_qa.py]" {
+  component "setup()\nLoad PDF → Chunk → Embed\nFill SimpleRAG + Enhanced stores" as Setup
+  component "run_pass(pass_num)\n20 questions × 2 passes" as RunPass
+  component "Per-question metrics:\n  Faithful (T/F)\n  Confidence (0-1)\n  Self-corrected (T/F)\n  Time (s)" as QMetrics
+  component "Pass Summary:\n  Faithfulness Rate\n  Avg Confidence\n  Self-Correction Rate\n  Avg / Total Time" as PassSummary
+  component "Final Comparison Table\n  Pass1 vs Pass2\n  Delta for each metric" as FinalComp
+  component "advance_time(3 days)\n+ prune()" as TimeOp
+}
+
+' ============================================================
+' PACKAGE: FRONTEND  [app.py]
+' ============================================================
+package "Streamlit Frontend  [app.py]" {
+  component "PDF Upload & Process\nReset stores on new upload\nFit embedder fresh" as UIIngest
+  component "Chat Input → FDLEngine.ask(q)" as UIChat
+  component "Side-by-side Display:\n  Simple RAG answer\n  Enhanced RAG answer\n  Faithful / Confidence badges" as UIDisplay
+  component "Memory Management Sidebar:\n  Advance Time + Prune\n  Memory Size Stats (KB)\n  Reduction %\n  Model Name Config" as UISidebar
+}
+
+' ============================================================
+' CONNECTIONS — INGESTION
+' ============================================================
+User --> PDFLoader : uploads PDF
+PDFLoader --> Chunker : raw text
+Chunker --> Embedder : 250-char chunks\n(overlap=30)
+Embedder --> SimpleStore : store(chunk, importance=0.8)
+Embedder --> EnhancedStore : store(chunk, importance=0.8)
+
+' ============================================================
+' CONNECTIONS — AGENT PIPELINE
+' ============================================================
+User --> QueryRewrite : raw question
+QueryRewrite --> LLM : expand query
+LLM --> QueryRewrite : expanded query
+QueryRewrite --> Retrieve5 : expanded query
+Retrieve5 --> EnhancedStore : retrieve k=5
+EnhancedStore --> ConfGate : filter low-confidence
+ConfGate --> HardCap : cap memory slots
+HardCap --> DocArb : validate mem vs doc
+DocArb --> Rerank : top-5 candidates
+Rerank --> LLM : rank by relevance
+LLM --> Rerank : indices of best 2
+Rerank --> ConstraintPrompt : best 2 chunks
+ConstraintPrompt --> LLM : generate answer
+LLM --> Step1 : System-1 answer
+
+' ============================================================
+' CONNECTIONS — PRIORITY SCORING
+' ============================================================
+Priority --> Decay : current_strength(t)
+Priority --> ConfBoost : confidence_score
+
+' ============================================================
+' CONNECTIONS — FDL ENGINE FLOW
+' ============================================================
+Step1 --> BuildDocCtx : retrieved memory IDs
+BuildDocCtx --> Step2 : doc-only context + embeddings
+Step2 --> LLM : faithfulness prompt
+LLM --> Step2 : VERDICT / CONFIDENCE
+Step2 --> Step3 : if unfaithful or conf < 0.6
+Step3 --> Sys2Extract : q + k=15 doc chunks
+Sys2Extract --> ChunkExtract : one chunk at a time
+ChunkExtract --> LLM : extract from single chunk
+LLM --> ChunkExtract : answer or NOT_FOUND
+ChunkExtract --> ValidateCorr : candidate correction
+ValidateCorr --> Step4 : if INVALID (hallucination)
+ValidateCorr --> Step2 : if VALID, re-verify
+Step3 --> Step4 : if still unfaithful
+Step4 --> Rephrase : question
+Rephrase --> LLM : generate rephrasing
+LLM --> Rephrase : rephrased question
+Step4 --> ConsistCheck : original + rephrased answers
+ConsistCheck --> LLM : compare answers
+LLM --> ConsistCheck : CONSISTENT: YES/NO
+Step4 --> Step5 : log outcome
+Step5 --> CorrValid : validate before persist
+CorrValid --> ConceptExtract : valid correction
+ConceptExtract --> FDLStore : concept: answer
+FDLStore --> EnhancedStore : upsert failure note
+Step5 --> ConfBoost : on success
+Step5 --> ConfPenalty : on failure
+
+' ============================================================
+' CONNECTIONS — PRUNING
+' ============================================================
+Prune --> Decay : reads current_strength
+Prune --> EnhancedStore : suppress weak memories
+
+' ============================================================
+' CONNECTIONS — BENCHMARK
+' ============================================================
+Setup --> PDFLoader
+Setup --> RunPass
+RunPass --> Step1 : Simple RAG path (no FDL)
+RunPass --> Step1 : Enhanced RAG path (FDL engine)
+RunPass --> FaithCheck : judge both answers
+RunPass --> QMetrics
+QMetrics --> PassSummary
+PassSummary --> TimeOp : between pass 1 and pass 2
+TimeOp --> RunPass : pass 2
+PassSummary --> FinalComp
+
+' ============================================================
+' CONNECTIONS — FRONTEND
+' ============================================================
+User --> UIIngest : PDF upload
+UIIngest --> Embedder
+User --> UIChat : question
+UIChat --> Step1 : via FDLEngine
+UIChat --> UIDisplay : answers + metrics
+UISidebar --> Prune : advance time + prune
+UISidebar --> EnhancedStore : shows size in KB
+
+@enduml

@@ -1,0 +1,84 @@
+# Enhanced RAG with Failure-Driven Learning (FDL)
+
+This repository contains an autonomous memory system that extends standard Retrieval-Augmented Generation (RAG) by giving it a "cognitive stack". It features Ebbinghaus decay, Semantic Caching, GraphRAG, and Failure-Driven Learning (FDL) to continuously improve from its own interactions without needing human-labeled ground truth.
+
+## 🚀 Features
+
+- **Failure-Driven Learning (FDL):** Uses an LLM-as-a-judge to detect failures and correct itself, updating memory so it doesn't repeat mistakes.
+- **Ebbinghaus Memory Decay:** Memories fade naturally if not used, and reinforce themselves if proven useful. This prevents memory bloat.
+- **Semantic Caching:** Sub-millisecond response times for near-paraphrased queries.
+- **GraphRAG + Vector RAG:** A unified memory system that performs standard semantic similarity alongside graph-based reasoning.
+- **Extension Wrapper API:** The entire pipeline is bundled into an easy-to-use drop-in extension.
+
+## 📂 Project Structure
+
+```text
+.
+├── app.py                # Streamlit Playground App
+├── src/                  # Core Library
+│   ├── eval/             # LLM as a Judge Evaluation System
+│   ├── memory/           # Memory Models & FDL Engine
+│   ├── rag/              # Embedder, Agent, Semantic Cache, GraphRAG
+│   └── utils/            # Document parsing tools
+├── tests/                # Benchmarking and QA scripts
+├── docs/                 # Research papers, schemas, executive summaries
+├── results/              # JSON output files from benchmark runs
+└── setup.py              # Packaging configuration
+```
+
+## 🛠 Prerequisites
+
+Before running the project, your friend will need:
+1. **Python 3.8+** installed on their system.
+2. **[Ollama](https://ollama.com/)** installed and running locally. The system uses local LLMs to ensure privacy and avoid API costs.
+   - Once Ollama is installed, they need to pull the default model by running this in their terminal:
+     ```bash
+     ollama run qwen2.5:1.5b
+     ```
+
+## 🛠 Installation
+
+Once the prerequisites are met, they can clone the repository and install it as a Python package.
+
+```bash
+git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
+pip install -e .
+```
+
+## 📖 Quickstart
+
+Using the `RAGMemoryExtension` wrapper makes it incredibly easy to embed this pipeline in any Python application.
+
+```python
+from src.extension import RAGMemoryExtension, ExtensionConfig
+
+# 1. Initialize the pipeline
+config = ExtensionConfig(llm_model="qwen2.5:1.5b")
+memory_ext = RAGMemoryExtension(config)
+
+# 2. Ingest documents
+memory_ext.ingest_pdfs(["test_document/10_English_Textbook_2024-25.pdf"])
+
+# 3. Ask a question!
+response = memory_ext.ask("What did Lencho ask for in his letter to God?")
+
+# The response contains the answer and evaluation metrics
+print(response["final_answer"])
+```
+
+### Try the Playground
+
+We have a Streamlit app to interactively test the basic RAG vs Enhanced RAG side by side:
+
+```bash
+streamlit run app.py
+```
+
+## 📝 Documentation
+
+Check the `docs/` folder for the technical roadmap and theoretical background:
+- `EXECUTIVE_SUMMARY.md`
+- `memory_schema_phase1.md`
+- `memory_system_gaps_analysis.md`
+- `PIPELINE_REFERENCE.md`

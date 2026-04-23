@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Benchmark Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            font-size: 1.4em;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+
+        /* Control Panel */
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        /* Progress Section */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .progress-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-bar.pass-1 {
+            background: linear-gradient(90deg, #00d4ff 0%, #0099ff 100%);
+        }
+
+        .progress-bar.pass-2 {
+            background: linear-gradient(90deg, #00ff88 0%, #00cc66 100%);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-box.simple {
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+        }
+
+        .stat-box.enhanced {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: 700;
+            color: white;
+            margin: 4px 0;
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.9);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Results Section */
+        .results-section {
+            grid-column: 1 / -1;
+        }
+
+        .questions-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px 0;
+        }
+
+        .question-result {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .question-result:hover {
+            background: #f9f9f9;
+        }
+
+        .question-result:last-child {
+            border-bottom: none;
+        }
+
+        .question-info {
+            flex: 1;
+        }
+
+        .question-num {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 0.9em;
+        }
+
+        .question-text {
+            font-size: 0.9em;
+            color: #666;
+            margin: 4px 0 0 0;
+            max-width: 400px;
+        }
+
+        .question-results {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .agent-result {
+            text-align: center;
+            min-width: 80px;
+        }
+
+        .agent-name {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            color: #999;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .faith-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            color: white;
+        }
+
+        .faith-badge.yes {
+            background: #4caf50;
+        }
+
+        .faith-badge.no {
+            background: #f44336;
+        }
+
+        .conf-value {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .time-value {
+            font-size: 0.8em;
+            color: #999;
+        }
+
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            margin-top: 16px;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .comparison-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 0.9em;
+        }
+
+        .comparison-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .comparison-table .metric {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .comparison-table .delta {
+            font-weight: 700;
+        }
+
+        .delta.positive {
+            color: #4caf50;
+        }
+
+        .delta.negative {
+            color: #f44336;
+        }
+
+        .delta.neutral {
+            color: #999;
+        }
+
+        /* Status */
+        .status-area {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 0.9em;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .status-line {
+            color: #666;
+            margin: 3px 0;
+        }
+
+        .status-line.success {
+            color: #4caf50;
+            font-weight: 600;
+        }
+
+        .status-line.error {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .status-line.info {
+            color: #2196f3;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Download Section */
+        .download-section {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .download-btn {
+            padding: 10px 16px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .download-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .download-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 3em;
+            margin-bottom: 12px;
+        }
+
+        .empty-state-text {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .empty-state-subtext {
+            font-size: 0.9em;
+            color: #bbb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🔬 RAG Benchmark Dashboard</h1>
+            <p>Autonomous RAG vs Enhanced RAG with FDL Pipeline</p>
+        </header>
+
+        <div class="dashboard">
+            <!-- Control Panel -->
+            <div class="card">
+                <h2>Configuration</h2>
+                <div class="control-section">
+                    <div class="input-group">
+                        <label for="pdfPath">PDF Path</label>
+                        <input type="text" id="pdfPath" value="test_document/COI.pdf">
+                    </div>
+                    <div class="input-group">
+                        <label for="model">Ollama Model</label>
+                        <input type="text" id="model" value="qwen2.5:1.5b">
+                    </div>
+                    <div class="input-group">
+                        <label for="chunkSize">Chunk Size</label>
+                        <input type="number" id="chunkSize" value="250">
+                    </div>
+                    <div class="input-group">
+                        <label for="decayDays">Decay Simulation (days)</label>
+                        <input type="number" id="decayDays" value="3" min="0" step="0.1">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="startBenchmark()" id="startBtn">Start Benchmark</button>
+                        <button onclick="resetUI()" id="resetBtn">Reset</button>
+                    </div>
+                    <div class="status-area" id="statusArea">
+                        <div class="status-line">Ready to start benchmark</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Panel -->
+            <div class="card">
+                <h2>Progress</h2>
+                <div class="progress-container">
+                    <div class="progress-item">
+                        <div class="progress-label">
+                            <span>Pass 1</span>
+                            <span id="pass1Progress">0/20</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar pass-1" id="pass1Bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="progress-item">
+                        <div class="progress-label">
+                            <span>Pass 2</span>
+                            <span id="pass2Progress">0/20</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar pass-2" id="pass2Bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 2px solid #f0f0f0;">
+                        <div class="progress-label">
+                            <span>Overall Time Elapsed</span>
+                            <span id="totalTime">0:00</span>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <div class="progress-label">Current Question:</div>
+                            <div id="currentQuestion"
+                                style="color: #667eea; font-weight: 600; margin-top: 6px; font-size: 0.95em;">Waiting to
+                                start...</div>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-box simple">
+                            <div class="stat-label">Simple Faithfulness</div>
+                            <div class="stat-value" id="simpleFaith">-</div>
+                        </div>
+                        <div class="stat-box enhanced">
+                            <div class="stat-label">Enhanced Faithfulness</div>
+                            <div class="stat-value" id="enhancedFaith">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="card results-section">
+                <h2>Question Results</h2>
+                <div class="questions-container" id="resultsContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <div class="empty-state-text">No results yet</div>
+                        <div class="empty-state-subtext">Start the benchmark to see results here</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Section -->
+            <div class="card results-section">
+                <h2>Pass Comparison</h2>
+                <div id="comparisonContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📈</div>
+                        <div class="empty-state-text">Waiting for results</div>
+                        <div class="empty-state-subtext">Complete both passes to see comparison</div>
+                    </div>
+                </div>
+                <div class="download-section">
+                    <button class="download-btn" id="downloadPass1" disabled onclick="downloadResults('pass1')">
+                        📥 Pass 1 JSON
+                    </button>
+                    <button class="download-btn" id="downloadPass2" disabled onclick="downloadResults('pass2')">
+                        📥 Pass 2 JSON
+                    </button>
+                    <button class="download-btn" id="downloadSummary" disabled onclick="downloadSummary()">
+                        📥 Summary CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─────────────────────────────────────────────────────────────
+        // State Management
+        // ─────────────────────────────────────────────────────────────
+        const state = {
+            isRunning: false,
+            startTime: null,
+            currentPass: 0,
+            currentQuestion: 0,
+            results: {
+                pass1: { metrics: null, questions: [] },
+                pass2: { metrics: null, questions: [] }
+            }
+        };
+
+        const QUESTIONS = [
+            "When did the Constitution of India come into effect?",
+            "Who is known as the Father of the Indian Constitution?",
+            "How many Fundamental Rights are currently recognized in India?",
+            "Which part of the Constitution deals with Fundamental Rights?",
+            "What is the minimum voting age in India?",
+            "Which article of the Constitution abolishes untouchability?",
+            "What is the maximum strength of the Lok Sabha?",
+            "Which body is known as the guardian of the Constitution?",
+            "What type of federal system does India follow?",
+            "Which amendment added Socialist and Secular to the Preamble?",
+            "Which article allows the President to declare a National Emergency?",
+            "What is the difference between Article 32 and Article 226?",
+            "Which schedule deals with anti-defection laws?",
+            "Can Fundamental Rights be suspended during Emergency?",
+            "Who has the power to amend the Constitution?",
+            "Why is Article 32 called heart and soul?",
+            "What is the Basic Structure Doctrine?",
+            "Difference between Fundamental Rights and Directive Principles?",
+            "What is a Money Bill?",
+            "Why does India have a single citizenship system?",
+        ];
+
+        // ─────────────────────────────────────────────────────────────
+        // UI Update Functions
+        // ─────────────────────────────────────────────────────────────
+
+        function updateStatus(message, type = 'info') {
+            const area = document.getElementById('statusArea');
+            const line = document.createElement('div');
+            line.className = `status-line ${type}`;
+
+            if (type === 'info' && state.isRunning) {
+                line.innerHTML = `<span class="spinner"></span>${message}`;
+            } else {
+                line.textContent = message;
+            }
+
+            area.innerHTML = '';
+            area.appendChild(line);
+        }
+
+        function updateProgress(pass, current, total) {
+            const percent = (current / total) * 100;
+            const barId = `pass${pass}Bar`;
+            const progressId = `pass${pass}Progress`;
+
+            document.getElementById(barId).style.width = percent + '%';
+            document.getElementById(progressId).textContent = `${current}/${total}`;
+        }
+
+        function updateCurrentQuestion(text) {
+            document.getElementById('currentQuestion').textContent = text || 'Processing...';
+        }
+
+        function updateTotalTime() {
+            if (!state.startTime) return;
+            const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            document.getElementById('totalTime').textContent =
+                `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateStats(pass, metrics) {
+            if (pass === 1) {
+                document.getElementById('simpleFaith').textContent =
+                    (metrics.simple_faithfulness_rate * 100).toFixed(0) + '%';
+                document.getElementById('enhancedFaith').textContent =
+                    (metrics.enhanced_faithfulness_rate * 100).toFixed(0) + '%';
+            } else {
+                document.getElementById('simpleFaith').textContent =
+                    (metrics.simple_faithfulness_rate * 100).toFixed(0) + '%';
+                document.getElementById('enhancedFaith').textContent =
+                    (metrics.enhanced_faithfulness_rate * 100).toFixed(0) + '%';
+            }
+        }
+
+        function addQuestionResult(pass, question, result) {
+            const container = document.getElementById('resultsContainer');
+
+            // Clear empty state on first result
+            if (container.querySelector('.empty-state')) {
+                container.innerHTML = '';
+            }
+
+            const elem = document.createElement('div');
+            elem.className = 'question-result';
+
+            const faithSimple = result.simple_faithful ? 'yes' : 'no';
+            const faithEnhanced = result.enhanced_faithful ? 'yes' : 'no';
+
+            elem.innerHTML = `
+                <div class="question-info">
+                    <div class="question-num">Q${result.q_num}</div>
+                    <div class="question-text">${result.question}</div>
+                </div>
+                <div class="question-results">
+                    <div class="agent-result">
+                        <div class="agent-name">Simple</div>
+                        <div class="faith-badge ${faithSimple}">${faithSimple.toUpperCase()}</div>
+                        <div class="conf-value">${result.simple_confidence?.toFixed(2) || '-'}</div>
+                        <div class="time-value">${result.simple_time_s?.toFixed(1) || '-'}s</div>
+                    </div>
+                    <div class="agent-result">
+                        <div class="agent-name">Enhanced</div>
+                        <div class="faith-badge ${faithEnhanced}">${faithEnhanced.toUpperCase()}</div>
+                        <div class="conf-value">${result.enhanced_confidence?.toFixed(2) || '-'}</div>
+                        <div class="time-value">${result.enhanced_time_s?.toFixed(1) || '-'}s</div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(elem);
+        }
+
+        function showComparison(m1, m2) {
+            const container = document.getElementById('comparisonContainer');
+
+            const metrics = [
+                { label: 'Faithfulness Rate (Simple)', key: 'simple_faithfulness_rate', format: 'percent' },
+                { label: 'Faithfulness Rate (Enhanced)', key: 'enhanced_faithfulness_rate', format: 'percent' },
+                { label: 'Avg Confidence (Simple)', key: 'simple_avg_confidence', format: 'decimal' },
+                { label: 'Avg Confidence (Enhanced)', key: 'enhanced_avg_confidence', format: 'decimal' },
+                { label: 'Correction Rate', key: 'enhanced_correction_rate', format: 'percent' },
+                { label: 'Avg Time (Simple)', key: 'simple_avg_time_s', format: 'decimal' },
+                { label: 'Avg Time (Enhanced)', key: 'enhanced_avg_time_s', format: 'decimal' },
+            ];
+
+            let html = '<table class="comparison-table"><thead><tr><th>Metric</th><th>Pass 1</th><th>Pass 2</th><th>Delta</th></tr></thead><tbody>';
+
+            for (const m of metrics) {
+                const v1 = m1[m.key];
+                const v2 = m2[m.key];
+                const delta = v2 - v1;
+                const sign = delta >= 0 ? '+' : '';
+                const deltaClass = delta > 0.001 ? 'positive' : delta < -0.001 ? 'negative' : 'neutral';
+
+                let v1Str, v2Str, deltaStr;
+                if (m.format === 'percent') {
+                    v1Str = (v1 * 100).toFixed(1) + '%';
+                    v2Str = (v2 * 100).toFixed(1) + '%';
+                    deltaStr = sign + (delta * 100).toFixed(1) + '%';
+                } else {
+                    v1Str = v1.toFixed(3);
+                    v2Str = v2.toFixed(3);
+                    deltaStr = sign + delta.toFixed(3);
+                }
+
+                html += `<tr><td class="metric">${m.label}</td><td>${v1Str}</td><td>${v2Str}</td><td class="delta ${deltaClass}">${deltaStr}</td></tr>`;
+            }
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+
+            document.getElementById('downloadPass1').disabled = false;
+            document.getElementById('downloadPass2').disabled = false;
+            document.getElementById('downloadSummary').disabled = false;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Simulation Engine
+        // ─────────────────────────────────────────────────────────────
+
+        async function simulateQuestionResult(qNum, question, pass) {
+            // Simulate realistic variance
+            const simple_faithful = Math.random() > 0.3;
+            const enhanced_faithful = Math.random() > 0.15;
+
+            return {
+                q_num: qNum,
+                question: question,
+                simple_answer: `Sample answer for "${question}" - Simple agent response.`,
+                simple_faithful: simple_faithful,
+                simple_confidence: 0.65 + Math.random() * 0.3,
+                simple_time_s: 1.2 + Math.random() * 2,
+                enhanced_s1_answer: `System1 quick response for "${question}".`,
+                enhanced_s2_answer: `System2 deliberative response with corrections.`,
+                enhanced_final: `Final refined answer to "${question}".`,
+                enhanced_faithful: enhanced_faithful,
+                enhanced_confidence: 0.75 + Math.random() * 0.2,
+                enhanced_corrected: enhanced_faithful && !simple_faithful,
+                enhanced_time_s: 2.5 + Math.random() * 3,
+            };
+        }
+
+        async function simulatePass(passNum) {
+            state.currentPass = passNum;
+            state.currentQuestion = 0;
+
+            const results = [];
+            let simple_faithful = 0;
+            let enhanced_faithful = 0;
+            let simple_conf = 0;
+            let enhanced_conf = 0;
+            let corrections = 0;
+            let simple_time = 0;
+            let enhanced_time = 0;
+
+            for (let i = 0; i < QUESTIONS.length; i++) {
+                state.currentQuestion = i + 1;
+                updateProgress(passNum, i + 1, QUESTIONS.length);
+                updateCurrentQuestion(QUESTIONS[i]);
+
+                // Simulate API call delay
+                await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
+
+                const result = await simulateQuestionResult(i + 1, QUESTIONS[i], passNum);
+                results.push(result);
+
+                if (result.simple_faithful) simple_faithful++;
+                if (result.enhanced_faithful) enhanced_faithful++;
+                simple_conf += result.simple_confidence;
+                enhanced_conf += result.enhanced_confidence;
+                if (result.enhanced_corrected) corrections++;
+                simple_time += result.simple_time_s;
+                enhanced_time += result.enhanced_time_s;
+
+                addQuestionResult(passNum, QUESTIONS[i], result);
+            }
+
+            const n = QUESTIONS.length;
+            const metrics = {
+                pass: passNum,
+                simple_faithfulness_rate: simple_faithful / n,
+                enhanced_faithfulness_rate: enhanced_faithful / n,
+                simple_avg_confidence: simple_conf / n,
+                enhanced_avg_confidence: enhanced_conf / n,
+                enhanced_self_corrections: corrections,
+                enhanced_correction_rate: corrections / n,
+                simple_total_time_s: simple_time,
+                enhanced_total_time_s: enhanced_time,
+                simple_avg_time_s: simple_time / n,
+                enhanced_avg_time_s: enhanced_time / n,
+            };
+
+            state.results[`pass${passNum}`] = { metrics, questions: results };
+            updateStats(passNum, metrics);
+
+            return metrics;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Main Benchmark Loop
+        // ─────────────────────────────────────────────────────────────
+
+        async function startBenchmark() {
+            if (state.isRunning) return;
+
+            state.isRunning = true;
+            state.startTime = Date.now();
+            state.results = { pass1: { metrics: null, questions: [] }, pass2: { metrics: null, questions: [] } };
+
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('resultsContainer').innerHTML = '';
+            document.getElementById('comparisonContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <div class="empty-state-text">Running benchmark...</div>
+                    <div class="empty-state-subtext">Pass 2 will start after Pass 1 completes</div>
+                </div>
+            `;
+
+            // Start timer update
+            const timerInterval = setInterval(() => {
+                if (state.isRunning) updateTotalTime();
+                else clearInterval(timerInterval);
+            }, 500);
+
+            try {
+                // Pass 1
+                updateStatus('Starting Pass 1...', 'info');
+                const m1 = await simulatePass(1);
+                updateStatus('Pass 1 complete. Simulating memory decay...', 'info');
+
+                // Simulate decay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Pass 2
+                updateStatus('Starting Pass 2...', 'info');
+                const m2 = await simulatePass(2);
+                updateStatus('Benchmark complete!', 'success');
+
+                // Show comparison
+                showComparison(m1, m2);
+
+                clearInterval(timerInterval);
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                state.isRunning = false;
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        function resetUI() {
+            if (state.isRunning) {
+                if (!confirm('Benchmark is running. Stop it?')) return;
+                state.isRunning = false;
+            }
+
+            state.startTime = null;
+            state.currentPass = 0;
+            state.currentQuestion = 0;
+            state.results = { pass1: { metrics: null, questions: [] }, pass2: { metrics: null, questions: [] } };
+
+            updateProgress(1, 0, 20);
+            updateProgress(2, 0, 20);
+            updateCurrentQuestion('Waiting to start...');
+            document.getElementById('totalTime').textContent = '0:00';
+            document.getElementById('simpleFaith').textContent = '-';
+            document.getElementById('enhancedFaith').textContent = '-';
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <div class="empty-state-text">No results yet</div>
+                    <div class="empty-state-subtext">Start the benchmark to see results here</div>
+                </div>
+            `;
+            document.getElementById('comparisonContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📈</div>
+                    <div class="empty-state-text">Waiting for results</div>
+                    <div class="empty-state-subtext">Complete both passes to see comparison</div>
+                </div>
+            `;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('downloadPass1').disabled = true;
+            document.getElementById('downloadPass2').disabled = true;
+            document.getElementById('downloadSummary').disabled = true;
+            updateStatus('Ready to start benchmark', 'info');
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Export Functions
+        // ─────────────────────────────────────────────────────────────
+
+        function downloadResults(pass) {
+            const data = state.results[pass];
+            if (!data.metrics) return;
+
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `results_${pass}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadSummary() {
+            const m1 = state.results.pass1.metrics;
+            const m2 = state.results.pass2.metrics;
+            if (!m1 || !m2) return;
+
+            let csv = 'Metric,Pass 1,Pass 2,Delta\n';
+            const metrics = [
+                { label: 'Simple Faithfulness', key: 'simple_faithfulness_rate' },
+                { label: 'Enhanced Faithfulness', key: 'enhanced_faithfulness_rate' },
+                { label: 'Simple Avg Confidence', key: 'simple_avg_confidence' },
+                { label: 'Enhanced Avg Confidence', key: 'enhanced_avg_confidence' },
+                { label: 'Enhanced Correction Rate', key: 'enhanced_correction_rate' },
+            ];
+
+            for (const m of metrics) {
+                const v1 = m1[m.key];
+                const v2 = m2[m.key];
+                const delta = v2 - v1;
+                csv += `"${m.label}",${v1.toFixed(3)},${v2.toFixed(3)},${delta.toFixed(3)}\n`;
+            }
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'benchmark_summary.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>
