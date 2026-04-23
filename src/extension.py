@@ -135,8 +135,9 @@ class RAGMemoryExtension:
         self.memory._query_outcomes.clear()
         self.memory._failure_note_ids.clear()
         self.cache.invalidate_all()
-        self.graph.nodes.clear()
-        self.graph.edges.clear()
+        self.graph._chunk_entities.clear()
+        self.graph._entity_to_chunks.clear()
+        self.graph._total_chunks = 0
         self.graph._built = False
         self.ingested_documents.clear()
         
@@ -183,8 +184,9 @@ class RAGMemoryExtension:
             "query_outcomes": self.memory._query_outcomes,
             "failure_note_ids": self.memory._failure_note_ids,
             "cache_entries": self.cache._entries,
-            "graph_nodes": self.graph.nodes if self.graph._built else None,
-            "graph_edges": self.graph.edges if self.graph._built else None,
+            "graph_chunk_entities": self.graph._chunk_entities if self.graph._built else None,
+            "graph_entity_to_chunks": self.graph._entity_to_chunks if self.graph._built else None,
+            "graph_total_chunks": self.graph._total_chunks if self.graph._built else None,
             "ingested_documents": self.ingested_documents
         }
         with open(filepath, "wb") as f:
@@ -205,9 +207,10 @@ class RAGMemoryExtension:
         self.memory._failure_note_ids = state["failure_note_ids"]
         self.cache._entries = state["cache_entries"]
         
-        if state["graph_nodes"] is not None:
-            self.graph.nodes = state["graph_nodes"]
-            self.graph.edges = state["graph_edges"]
+        if state.get("graph_chunk_entities") is not None:
+            self.graph._chunk_entities = state["graph_chunk_entities"]
+            self.graph._entity_to_chunks = state["graph_entity_to_chunks"]
+            self.graph._total_chunks = state["graph_total_chunks"]
             self.graph._built = True
             
         if "ingested_documents" in state:
