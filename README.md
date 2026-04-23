@@ -105,8 +105,5 @@ streamlit run app.py
 
 ## 📝 Documentation
 
-Check the `docs/` folder for the technical roadmap and theoretical background:
-- `EXECUTIVE_SUMMARY.md`
-- `memory_schema_phase1.md`
-- `memory_system_gaps_analysis.md`
-- `PIPELINE_REFERENCE.md`
+Check the `docs/` folder for a technical deep dive into how the system achieves Ebbinghaus decay, FDL, and Semantic Caching:
+- `docs/ARCHITECTURE.md`
