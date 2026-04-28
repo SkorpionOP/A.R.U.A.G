@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A.R.U.A.G — Adaptive Retrieval Using Adaptation + Generation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=JetBrains+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-hi: rgba(255, 255, 255, 0.12);
+      --text: #f0f0f0;
+      --muted: #6b6b6b;
+      --dim: #333333;
+      --accent: #ffffff;
+      --green: #cccccc;
+      --amber: #aaaaaa;
+      --red: #999999;
+      --purple: #bbbbbb;
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    #particles-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #cursor {
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width 0.15s, height 0.15s, background 0.15s;
+    }
+
+    #cursor-dot {
+      position: fixed;
+      width: 3px;
+      height: 3px;
+      background: #ffffff;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+    }
+
+    #orb {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.04) 0%, transparent 70%);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      will-change: left, top;
+    }
+
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 3rem;
+      height: 58px;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.08em
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2.5rem;
+      list-style: none
+    }
+
+    .nav-links a {
+      font-size: 11px;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text)
+    }
+
+    .nav-cta {
+      color: var(--text) !important;
+      border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      padding: 5px 14px;
+      border-radius: 3px;
+    }
+
+    .nav-cta:hover {
+      background: rgba(255, 255, 255, 0.06) !important
+    }
+
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 100px 2rem 4rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 5px 14px;
+      border-radius: 100px;
+      letter-spacing: 0.1em;
+      margin-bottom: 3rem;
+    }
+
+    .badge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: 0.2
+      }
+    }
+
+    /* === VARIABLE FONT TITLE === */
+    .dyn-title {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: baseline;
+      gap: 0;
+      margin-bottom: 1.25rem;
+      user-select: none;
+      line-height: 0.88;
+    }
+
+    .dyn-title .ch {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(78px, 12.5vw, 168px);
+      font-variation-settings: 'wght' 100, 'opsz' 144;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      display: inline-block;
+      will-change: font-variation-settings;
+    }
+
+    .dyn-title .ch-dot {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(36px, 5.5vw, 72px);
+      font-variation-settings: 'wght' 200, 'opsz' 72;
+      color: rgba(255, 255, 255, 0.4);
+      display: inline-block;
+      padding-bottom: 0.05em;
+      will-change: font-variation-settings;
+    }
+
+    .title-sub {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: clamp(14px, 2vw, 22px);
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.01em;
+    }
+
+    .hero-desc {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.85;
+      margin-bottom: 3rem;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center
+    }
+
+    .btn-p {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 11px 26px;
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      border-radius: 4px;
+      cursor: none;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    .btn-p:hover {
+      opacity: 0.82;
+      transform: translateY(-1px)
+    }
+
+    .btn-s {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 11px 26px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border-hi);
+      border-radius: 4px;
+      cursor: none;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s, border-color 0.2s, transform 0.15s;
+    }
+
+    .btn-s:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.28);
+      transform: translateY(-1px)
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 2.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .scroll-line {
+      width: 1px;
+      height: 36px;
+      background: linear-gradient(to bottom, var(--dim), transparent);
+      animation: sl 1.8s infinite;
+    }
+
+    @keyframes sl {
+      0% {
+        transform: scaleY(0);
+        transform-origin: top
+      }
+
+      49% {
+        transform: scaleY(1);
+        transform-origin: top
+      }
+
+      50% {
+        transform: scaleY(1);
+        transform-origin: bottom
+      }
+
+      100% {
+        transform: scaleY(0);
+        transform-origin: bottom
+      }
+    }
+
+    /* CODE */
+    .code-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      margin: 2rem auto 6rem;
+      padding: 0 2rem
+    }
+
+    .code-card {
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      overflow: hidden
+    }
+
+    .code-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.018);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%
+    }
+
+    .dr {
+      background: #555
+    }
+
+    .dy {
+      background: #777
+    }
+
+    .dg {
+      background: #999
+    }
+
+    .code-fname {
+      font-size: 11px;
+      color: var(--dim);
+      margin-left: 6px
+    }
+
+    .code-body {
+      padding: 1.4rem 1.6rem;
+      font-size: 12.5px;
+      line-height: 1.9;
+      text-align: left;
+      overflow-x: auto
+    }
+
+    .ck {
+      color: rgba(255, 255, 255, 0.9)
+    }
+
+    .cs {
+      color: rgba(255, 255, 255, 0.55)
+    }
+
+    .cf {
+      color: rgba(255, 255, 255, 0.75)
+    }
+
+    .cc {
+      color: rgba(255, 255, 255, 0.2);
+      font-style: italic
+    }
+
+    .cv {
+      color: rgba(255, 255, 255, 0.65)
+    }
+
+    /* METRICS */
+    .metrics {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 4rem 2rem;
+    }
+
+    .metrics::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.02) 0%, transparent 70%);
+    }
+
+    .metrics-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 2rem;
+      position: relative;
+    }
+
+    .met {
+      text-align: center
+    }
+
+    .met-val {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'wght' 700, 'opsz' 72;
+      font-size: clamp(36px, 5vw, 60px);
+      line-height: 1;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.03em;
+    }
+
+    .met-lbl {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.06em
+    }
+
+    .mv-b, .mv-g, .mv-a, .mv-r, .mv-p {
+      color: var(--text)
+    }
+
+    /* SECTIONS */
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 6rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto
+    }
+
+    .s-label {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 1rem
+    }
+
+    .s-title {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'wght' 600, 'opsz' 72;
+      font-size: clamp(26px, 4vw, 46px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+    }
+
+    .s-body {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.8
+    }
+
+    .divider {
+      position: relative;
+      z-index: 1;
+      height: 1px;
+      background: var(--border);
+      max-width: 1100px;
+      margin: 0 auto
+    }
+
+    /* FEATURES */
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 3.5rem;
+    }
+
+    .feat {
+      background: var(--surface);
+      padding: 1.75rem 2rem;
+      transition: background 0.25s;
+      position: relative;
+      overflow: hidden
+    }
+
+    .feat::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.03);
+      opacity: 0;
+      transition: opacity 0.3s
+    }
+
+    .feat:hover::before {
+      opacity: 1
+    }
+
+    .feat-ico {
+      width: 36px;
+      height: 36px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.1rem;
+      font-size: 16px
+    }
+
+    .fi-b, .fi-g, .fi-a, .fi-r, .fi-p, .fi-t {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1)
+    }
+
+    .feat-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.02em
+    }
+
+    .feat-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7
+    }
+
+    /* ARCH */
+    .arch {
+      display: flex;
+      flex-direction: column;
+      margin-top: 3.5rem
+    }
+
+    .arch-step {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      gap: 0 1.75rem;
+      position: relative
+    }
+
+    .arch-step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 24px;
+      top: 44px;
+      width: 1px;
+      height: calc(100% - 16px);
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent);
+    }
+
+    .arch-num {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--border-hi);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--text);
+      background: var(--surface);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .arch-body {
+      padding: 0 0 2.75rem
+    }
+
+    .arch-body h3 {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.02em
+    }
+
+    .arch-body p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 500px
+    }
+
+    .atag {
+      display: inline-flex;
+      font-size: 10px;
+      padding: 2px 10px;
+      border-radius: 100px;
+      margin-top: 0.65rem;
+      letter-spacing: 0.07em
+    }
+
+    .at-b, .at-g, .at-a {
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.1)
+    }
+
+    /* MATH */
+    .math-card {
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      padding: 2.25rem;
+      margin-top: 2.5rem;
+      position: relative;
+      overflow: hidden
+    }
+
+    .math-card::after {
+      content: 'λ';
+      position: absolute;
+      right: 1.5rem;
+      top: -0.5rem;
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-size: 140px;
+      color: rgba(255, 255, 255, 0.018);
+      pointer-events: none
+    }
+
+    .math-f {
+      font-size: clamp(20px, 3vw, 34px);
+      color: var(--text);
+      margin: 1.25rem 0;
+      letter-spacing: -0.01em
+    }
+
+    .mf-v {
+      color: var(--text)
+    }
+
+    .mf-n {
+      color: rgba(255, 255, 255, 0.6)
+    }
+
+    .mf-o {
+      color: rgba(255, 255, 255, 0.3)
+    }
+
+    .math-legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 1rem;
+      margin-top: 1.75rem;
+      padding-top: 1.75rem;
+      border-top: 1px solid var(--border)
+    }
+
+    .leg-sym {
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 3px
+    }
+
+    .leg-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5
+    }
+
+    /* SCHEMA */
+    .schema {
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 1.75rem
+    }
+
+    .schema-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 1.4rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.016)
+    }
+
+    .s-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ffffff
+    }
+
+    .s-name {
+      font-size: 11px;
+      color: var(--muted)
+    }
+
+    .schema-body {
+      padding: 1.3rem 1.5rem;
+      font-size: 12px;
+      line-height: 2
+    }
+
+    .sf {
+      color: rgba(255, 255, 255, 0.4)
+    }
+
+    .sk {
+      color: rgba(255, 255, 255, 0.8)
+    }
+
+    .sv {
+      color: rgba(255, 255, 255, 0.55)
+    }
+
+    .sc {
+      color: rgba(255, 255, 255, 0.2);
+      font-style: italic
+    }
+
+    /* TC */
+    .tc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 2.75rem
+    }
+
+    .tc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 1.1rem 1.25rem;
+      transition: border-color 0.2s, transform 0.2s
+    }
+
+    .tc:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-2px)
+    }
+
+    .tc-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.6rem
+    }
+
+    .tc-id {
+      font-size: 10px;
+      color: var(--dim)
+    }
+
+    .tc-badge {
+      font-size: 9px;
+      padding: 2px 8px;
+      border-radius: 100px
+    }
+
+    .bc {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.15)
+    }
+
+    .bn {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      border: 1px solid var(--border)
+    }
+
+    .tc-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.02em
+    }
+
+    .tc-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6
+    }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem
+    }
+
+    .foot-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem
+    }
+
+    .foot-logo {
+      font-size: 12px;
+      color: var(--text)
+    }
+
+    .foot-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none
+    }
+
+    .foot-links a {
+      font-size: 11px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s
+    }
+
+    .foot-links a:hover {
+      color: var(--text)
+    }
+
+    .foot-copy {
+      font-size: 10px;
+      color: var(--dim)
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.55s ease, transform 0.55s ease
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: none
+    }
+  </style>
+</head>
+
+<body>
+
+  <canvas id="particles-canvas"></canvas>
+  <div id="orb"></div>
+  <div id="cursor"></div>
+  <div id="cursor-dot"></div>
+
+  <nav>
+    <span class="nav-logo">A.R.U.A.G / v1.0</span>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#math">Memory Decay</a></li>
+      <li><a href="#tests">Tests</a></li>
+      <li><a href="https://github.com/SkorpionOP/A.R.U.A.G" class="nav-cta">GitHub →</a></li>
+    </ul>
+  </nav>
+
+  <div class="hero">
+    <div class="badge reveal"><span class="badge-dot"></span>AUTONOMOUS · ADAPTIVE · OPEN SOURCE</div>
+    <div class="dyn-title" id="dynTitle" aria-label="A.R.U.A.G"></div>
+    <p class="title-sub reveal">Adaptive Retrieval Using Adaptation + Generation</p>
+    <p class="hero-desc reveal">
+      An autonomous memory system extending standard RAG with a cognitive stack.
+      Ebbinghaus decay, semantic caching, GraphRAG, and Failure-Driven Learning —
+      self-improving without human-labeled ground truth.
+    </p>
+    <div class="hero-btns reveal">
+      <a href="#architecture" class="btn-p">Explore Docs</a>
+      <a href="https://github.com/SkorpionOP/A.R.U.A.G" class="btn-s">View on GitHub</a>
+    </div>
+    <div class="scroll-hint">
+      <div class="scroll-line"></div>scroll
+    </div>
+  </div>
+
+  <div class="code-wrap reveal">
+    <div class="code-card">
+      <div class="code-bar">
+        <div class="dot dr"></div>
+        <div class="dot dy"></div>
+        <div class="dot dg"></div>
+        <span class="code-fname">quickstart.py</span>
+      </div>
+      <div class="code-body">
+        <span class="ck">from</span> <span class="cv">src.extension</span> <span class="ck">import</span> <span
+          class="cf">RAGMemoryExtension</span><span class="cv">, </span><span class="cf">ExtensionConfig</span><br>
+        <br>
+        <span class="cc"># Initialize with Ebbinghaus decay + Failure-Driven Learning</span><br>
+        <span class="cv">config</span> <span class="cv">=</span> <span class="cf">ExtensionConfig</span><span
+          class="cv">(</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="cv">llm_model</span><span class="cv">=</span><span
+          class="cs">"qwen2.5:1.5b"</span><span class="cv">,</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="cv">auto_save</span><span class="cv">=</span><span
+          class="ck">True</span><span class="cv">,</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="cv">save_filepath</span><span class="cv">=</span><span
+          class="cs">"brain.pkl"</span><br>
+        <span class="cv">)</span><br>
+        <span class="cv">memory_ext</span> <span class="cv">=</span> <span class="cf">RAGMemoryExtension</span><span
+          class="cv">(config)</span><br>
+        <br>
+        <span class="cc"># Ingest → Query → Self-correct loop runs automatically</span><br>
+        <span class="cv">memory_ext</span><span class="cv">.</span><span class="cf">ingest_pdfs</span><span
+          class="cv">([</span><span class="cs">"biology.pdf"</span><span class="cv">])</span><br>
+        <span class="cv">response</span> <span class="cv">=</span> <span class="cv">memory_ext</span><span
+          class="cv">.</span><span class="cf">ask</span><span class="cv">(</span><span class="cs">"What did Lencho ask
+          for?"</span><span class="cv">)</span><br>
+        <span class="cf">print</span><span class="cv">(response[</span><span class="cs">"final_answer"</span><span
+          class="cv">])</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metrics-inner">
+      <div class="met reveal">
+        <div class="met-val mv-b">≥85%</div>
+        <div class="met-lbl">End-to-End Accuracy</div>
+      </div>
+      <div class="met reveal">
+        <div class="met-val mv-g">≤20%</div>
+        <div class="met-lbl">Error Repetition Rate</div>
+      </div>
+      <div class="met reveal">
+        <div class="met-val mv-a">≥30%</div>
+        <div class="met-lbl">Memory Footprint Reduction</div>
+      </div>
+      <div class="met reveal">
+        <div class="met-val mv-r">~2ms</div>
+        <div class="met-lbl">Semantic Cache Latency</div>
+      </div>
+      <div class="met reveal">
+        <div class="met-val mv-p">29</div>
+        <div class="met-lbl">Verified Test Cases</div>
+      </div>
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="s-label reveal">Core Features</div>
+    <h2 class="s-title reveal">A cognitive stack for<br>autonomous agents</h2>
+    <p class="s-body reveal">Every component works in concert — transforming raw interactions into durable, evolving
+      expertise without human-labeled ground truth.</p>
+    <div class="feat-grid">
+      <div class="feat reveal">
+        <div class="feat-ico fi-r">🧠</div>
+        <div class="feat-title">Failure-Driven Learning</div>
+        <p class="feat-desc">LLM-as-a-judge detects hallucinations and auto-generates Failure Notes at strength 1.0. The
+          agent never repeats the same mistake — corrections surface as the #1 retrieval result forever.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico fi-b">⏳</div>
+        <div class="feat-title">Ebbinghaus Memory Decay</div>
+        <p class="feat-desc">Memories fade via S(t) = S₀·e^(−λt). Retrieved memories reinforce; idle ones decay below
+          the 0.17 suppression threshold and are excluded from all future searches.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico fi-g">⚡</div>
+        <div class="feat-title">Semantic Caching</div>
+        <p class="feat-desc">LRU cache with cosine similarity ≥ 0.92 detects paraphrased queries. Returns cached answers
+          instantly, dropping latency from ~3000ms to ~2ms — no LLM call needed.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico fi-a">🕸</div>
+        <div class="feat-title">GraphRAG + Vector RAG</div>
+        <p class="feat-desc">Unified memory combining cosine similarity with NetworkX graph traversal. Captures logical
+          neighbors and relational reasoning that pure vector search misses.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico fi-p">🔌</div>
+        <div class="feat-title">Extension Wrapper API</div>
+        <p class="feat-desc">The entire pipeline bundles into a drop-in RAGMemoryExtension with auto-save/load brain
+          states. Ingest PDFs and query in three lines. No external database required.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-ico fi-t">📦</div>
+        <div class="feat-title">Pickle Persistence</div>
+        <p class="feat-desc">Memory nodes, semantic cache LRU lists, and GraphRAG edges serialize into a single
+          compressed byte-stream via Python pickle. Zero infrastructure overhead.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section id="architecture">
+    <div class="s-label reveal">System Architecture</div>
+    <h2 class="s-title reveal">The FDL correction loop</h2>
+    <p class="s-body reveal">A strict System-1 / System-2 duality governs every query. Fast retrieval first, deep
+      correction only when the judge fires.</p>
+    <div class="arch">
+      <div class="arch-step reveal">
+        <div class="arch-num">01</div>
+        <div class="arch-body">
+          <h3>System-1 — Fast Retrieval</h3>
+          <p>Cosine-similarity search over all non-suppressed memory nodes returns top-k results. A provisional answer
+            is generated in milliseconds.</p><span class="atag at-b">all-MiniLM-L6-v2 · cosine similarity</span>
+        </div>
+      </div>
+      <div class="arch-step reveal">
+        <div class="arch-num">02</div>
+        <div class="arch-body">
+          <h3>Adjudication — LLMJudge</h3>
+          <p>An independent judge evaluates faithfulness of the provisional answer against retrieved context. Outputs
+            True (ships immediately) or False (triggers System-2). No latency on success.</p><span
+            class="atag at-a">hallucination detection · faithfulness scoring</span>
+        </div>
+      </div>
+      <div class="arch-step reveal">
+        <div class="arch-num">03</div>
+        <div class="arch-body">
+          <h3>System-2 — Deep Search</h3>
+          <p>On False verdict, the FDL engine lowers similarity thresholds, increases k, and activates GraphRAG
+            relationship traversal to locate ground truth. A corrected answer is generated.</p><span
+            class="atag at-b">graph traversal · low-threshold retrieval</span>
+        </div>
+      </div>
+      <div class="arch-step reveal">
+        <div class="arch-num">04</div>
+        <div class="arch-body">
+          <h3>Failure Note Injection</h3>
+          <p>A targeted correction is synthesized: <em style="color:rgba(255,255,255,0.7)">"[CORRECTION]: agent claimed X —
+              document states Y."</em> Embedded at strength 1.0 as category=failure_note — permanently becomes the #1
+            result for that query class.</p><span class="atag at-g">strength=1.0 · category=failure_note</span>
+        </div>
+      </div>
+      <div class="arch-step reveal">
+        <div class="arch-num">05</div>
+        <div class="arch-body">
+          <h3>Reinforcement or Decay</h3>
+          <p>Successful retrievals reset last_accessed to now() and boost strength. Unused memories decay until they
+            cross the suppression threshold and vanish from search — keeping retrieval fast and relevant.</p><span
+            class="atag at-a">spaced repetition · threshold pruning</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section id="math">
+    <div class="s-label reveal">Memory Metabolism</div>
+    <h2 class="s-title reveal">The mathematics of forgetting</h2>
+    <p class="s-body reveal">Every memory node carries a living strength value. The system actively digests useful
+      knowledge and excretes stale data based on actual field utility.</p>
+    <div class="math-card reveal">
+      <div class="s-label" style="margin-bottom:0.4rem">Ebbinghaus Decay Formula</div>
+      <div class="math-f"><span class="mf-v">S(t)</span> <span class="mf-o">=</span> <span class="mf-v">S₀</span> <span
+          class="mf-o">×</span> e<sup><span class="mf-o">−</span><span class="mf-v">λt</span></sup></div>
+      <div class="s-label" style="margin-bottom:0.4rem;margin-top:1.5rem">Adaptive Variant — Memory Worth + Context
+        Relevance</div>
+      <div class="math-f" style="font-size:clamp(13px,2vw,22px)"><span class="mf-v">M</span> <span class="mf-o">=</span>
+        sim(<span class="mf-v">m</span><span class="mf-o">,</span><span class="mf-v">q</span>) <span
+          class="mf-o">·</span> (<span class="mf-n">α</span><span class="mf-o">·</span><span class="mf-v">MW</span>
+        <span class="mf-o">+</span> <span class="mf-n">γ</span><span class="mf-o">·</span><span
+          class="mf-v">reward</span>) <span class="mf-o">·</span> e<sup><span class="mf-o">−</span><span
+            class="mf-v">λt</span></sup></div>
+      <div class="math-legend">
+        <div>
+          <div class="leg-sym">S(t)</div>
+          <div class="leg-desc">Current memory strength at time t</div>
+        </div>
+        <div>
+          <div class="leg-sym">S₀</div>
+          <div class="leg-desc">Initial or previous strength value</div>
+        </div>
+        <div>
+          <div class="leg-sym">λ</div>
+          <div class="leg-desc">Decay rate — 0.01 critical, 0.05 standard, 0.1 failures</div>
+        </div>
+        <div>
+          <div class="leg-sym">t</div>
+          <div class="leg-desc">Days elapsed since last_accessed</div>
+        </div>
+        <div>
+          <div class="leg-sym">MW</div>
+          <div class="leg-desc">Memory Worth — success/failure co-occurrence ratio</div>
+        </div>
+        <div>
+          <div class="leg-sym">0.17</div>
+          <div class="leg-desc">Suppression threshold — below this, excluded from search</div>
+        </div>
+      </div>
+    </div>
+    <div class="schema reveal">
+      <div class="schema-bar">
+        <div class="s-dot"></div><span class="s-name">memory.py · Memory dataclass</span>
+      </div>
+      <div class="schema-body">
+        <span class="sf">@dataclass</span><br>
+        <span class="ck">class</span> <span class="cf">Memory</span><span class="sf">:</span><br>
+        &nbsp;&nbsp;<span class="sk">id</span><span class="sf">:</span>&nbsp;<span
+          class="sv">str</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+          class="sc"># Unique UUID</span><br>
+        &nbsp;&nbsp;<span class="sk">text</span><span class="sf">:</span>&nbsp;<span
+          class="sv">str</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span
+          class="sc"># Actual content</span><br>
+        &nbsp;&nbsp;<span class="sk">vector</span><span class="sf">:</span>&nbsp;<span
+          class="sv">np.ndarray</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sc"># all-MiniLM-L6-v2
+          embedding</span><br>
+        &nbsp;&nbsp;<span class="sk">timestamp</span><span class="sf">:</span>&nbsp;<span
+          class="sv">datetime</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="sc"># Creation time</span><br>
+        &nbsp;&nbsp;<span class="sk">last_accessed</span><span class="sf">:</span>&nbsp;<span
+          class="sv">datetime</span><br>
+        &nbsp;&nbsp;<span class="sk">strength</span><span class="sf">:</span>&nbsp;<span
+          class="sv">float</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sc"># 0.0 → 1.0</span><br>
+        &nbsp;&nbsp;<span class="sk">category</span><span class="sf">:</span>&nbsp;<span
+          class="sv">str</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sc">#
+          learned_fact | failure_note | document_chunk</span><br>
+        &nbsp;&nbsp;<span class="sk">suppressed</span><span class="sf">:</span>&nbsp;<span
+          class="sv">bool</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="sc"># True → excluded from all
+          searches</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section id="tests">
+    <div class="s-label reveal">Test Coverage</div>
+    <h2 class="s-title reveal">29 verified test cases</h2>
+    <p class="s-body reveal">Full coverage across data generation, retrieval, FDL loops, Ebbinghaus pruning, end-to-end
+      benchmarks, and edge cases. Three critical must-pass gates for Prototype A.</p>
+    <div class="tc-grid">
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-19</span><span class="tc-badge bc">CRITICAL</span></div>
+        <div class="tc-title">Accuracy ≥ 85%</div>
+        <p class="tc-desc">EnhancedMemory over 50 dialogues × 10 turns. With 92% hit accuracy, end-to-end should exceed
+          85%.</p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-20</span><span class="tc-badge bc">CRITICAL</span></div>
+        <div class="tc-title">Error Repetition ≤ 20%</div>
+        <p class="tc-desc">FDL logs failures and stores failure records. Repeated errors surface failure memories,
+          prompting correction.</p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-21</span><span class="tc-badge bc">CRITICAL</span></div>
+        <div class="tc-title">Memory Reduction ≥ 30%</div>
+        <p class="tc-desc">prune() every 5 turns with λ=0.02 preferences, λ=0.10 failures suppresses stale memories vs
+          plain RAG.</p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-07</span><span class="tc-badge bn">DECAY</span></div>
+        <div class="tc-title">Decay Reduces Score</div>
+        <p class="tc-desc">After 30 days at decay_rate=0.1, strength ≈ e^(−3) ≈ 0.05. Score must drop ≥50% vs t=0.</p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-08</span><span class="tc-badge bn">RETRIEVAL</span></div>
+        <div class="tc-title">Suppressed Excluded</div>
+        <p class="tc-desc">Memories with suppressed=True must not appear in any retrieval, even on exact query match.
+        </p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-12</span><span class="tc-badge bn">FDL</span></div>
+        <div class="tc-title">Failure Creates Memory</div>
+        <p class="tc-desc">Each failure auto-stores a Memory with category="failure". Zero stored → one new failure
+          record.</p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-17</span><span class="tc-badge bn">PRUNING</span></div>
+        <div class="tc-title">user_preference Protected</div>
+        <p class="tc-desc">Preference memories exempt from worth-based pruning even at 0% success rate — permanently
+          active.</p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-22</span><span class="tc-badge bn">E2E</span></div>
+        <div class="tc-title">Accuracy Ordering</div>
+        <p class="tc-desc">Enhanced > Simple RAG > No Memory. Memory always helps; FDL makes enhanced marginally better.
+        </p>
+      </div>
+      <div class="tc reveal">
+        <div class="tc-top"><span class="tc-id">TC-29</span><span class="tc-badge bn">SERIAL</span></div>
+        <div class="tc-title">JSON Output Valid</div>
+        <p class="tc-desc">Output must contain ["no_memory","simple_rag","enhanced"] each with accuracy,
+          error_repetition, memory_size_kb — all numeric.</p>
+      </div>
+    </div>
+    <div
+      style="margin-top:1.75rem;padding:1.1rem 1.4rem;background:var(--surface);border:1px solid rgba(255,255,255,0.12);border-radius:7px;display:flex;align-items:center;gap:1rem">
+      <span style="color:var(--text);font-size:16px">⚠</span>
+      <div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:3px;color:var(--text)">Prototype A Gate</div>
+        <p style="font-size:11px;color:var(--muted);line-height:1.65">TC-19, TC-20, and TC-21 are the three must-pass
+          criteria. The remaining 26 test cases verify correctness of individual subsystems across 6 categories.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="foot-inner">
+      <div class="foot-logo">A.R.U.A.G</div>
+      <ul class="foot-links">
+        <li><a href="https://github.com/SkorpionOP/A.R.U.A.G">GitHub</a></li>
+        <li><a href="#features">Docs</a></li>
+        <li><a href="#math">Research</a></li>
+      </ul>
+      <span class="foot-copy">MIT License · Ollama + Python · all-MiniLM-L6-v2</span>
+    </div>
+  </footer>
+
+  <script>
+    /* ================================================================
+       DYNAMIC FONT WEIGHT — proper technique
+       
+       Key differences from v1:
+       1. Uses font-variation-settings 'wght' axis (true variable font)
+          instead of font-weight (which snaps to 100-weight increments)
+       2. Gaussian bell curve falloff — soft, natural spread around cursor
+       3. Per-character target weight lerped each RAF tick (not on mousemove)
+          → silky 60fps interpolation regardless of mouse speed
+       4. Dots use separate wght range so they stay elegant
+       ================================================================ */
+
+    const TITLE = 'A.R.U.A.G';
+    const titleEl = document.getElementById('dynTitle');
+
+    const charData = TITLE.split('').map(ch => {
+      const span = document.createElement('span');
+      const isDot = ch === '.';
+      span.className = isDot ? 'ch-dot' : 'ch';
+      span.textContent = ch;
+      titleEl.appendChild(span);
+      return {
+        el: span,
+        isDot,
+        current: isDot ? 200 : 100,  // current wght (what we're drawing)
+        target: isDot ? 200 : 100,   // target wght (what we're aiming for)
+      };
+    });
+
+    let mouseX = -9999, mouseY = -9999;
+    let hasMoused = false;
+
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      hasMoused = true;
+    });
+
+    // Config
+    const WGHT_MIN = 100;   // thinnest letterform
+    const WGHT_MAX = 900;   // boldest letterform
+    const DOT_MIN = 150;
+    const DOT_MAX = 500;
+    const RADIUS = 280;   // falloff radius in px
+    const SIGMA = 0.36;  // Gaussian sigma (fraction of radius)
+    const LERP_FAST = 0.09;  // approach speed when cursor nearby
+    const LERP_SLOW = 0.06;  // retreat speed when cursor far
+
+    // Gaussian bell: 1.0 at dist=0, approaches 0 at dist=RADIUS
+    function gauss(dist) {
+      const n = dist / RADIUS;
+      return Math.exp(-(n * n) / (2 * SIGMA * SIGMA));
+    }
+
+    // Idle wave — breathes slowly when no cursor
+    let idleT = 0;
+
+    function frame() {
+      idleT += 0.016;
+
+      charData.forEach((c, i) => {
+        const rect = c.el.getBoundingClientRect();
+        const cx = rect.left + rect.width * 0.5;
+        const cy = rect.top + rect.height * 0.5;
+
+        let influence;
+
+        if (!hasMoused) {
+          // Gentle idle sine wave
+          influence = (Math.sin(idleT + i * 0.7) * 0.5 + 0.5) * 0.28;
+        } else {
+          const dx = mouseX - cx;
+          const dy = mouseY - cy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const g = gauss(dist);
+          // Add a tiny idle wave to letters at the edge so they never fully die
+          const wave = (Math.sin(idleT + i * 0.65) * 0.5 + 0.5) * 0.06 * (1 - g);
+          influence = Math.min(1, g + wave);
+        }
+
+        const wMin = c.isDot ? DOT_MIN : WGHT_MIN;
+        const wMax = c.isDot ? DOT_MAX : WGHT_MAX;
+        c.target = wMin + influence * (wMax - wMin);
+
+        // Lerp — use slightly different speed for approach vs retreat
+        // for a subtle "snap up, drift back" feel
+        const lerp = c.current < c.target ? LERP_FAST : LERP_SLOW;
+        c.current += (c.target - c.current) * lerp;
+
+        // Apply — only update DOM when value has meaningfully changed
+        const w = c.current.toFixed(1);
+        c.el.style.fontVariationSettings = `'wght' ${w}, 'opsz' 144`;
+
+        // Colour: thin = white, bold = brighter white with subtle glow
+        if (!c.isDot) {
+          const frac = (c.current - WGHT_MIN) / (WGHT_MAX - WGHT_MIN);
+          const v = Math.round(200 + frac * 55);
+          c.el.style.color = `rgb(${v},${v},${v})`;
+        }
+      });
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    /* ================================================================
+       CURSOR — dot snaps, ring lags
+       ================================================================ */
+    const curEl = document.getElementById('cursor');
+    const dotEl = document.getElementById('cursor-dot');
+    let cx = 0, cy = 0;
+
+    document.addEventListener('mousemove', e => {
+      dotEl.style.left = e.clientX + 'px';
+      dotEl.style.top = e.clientY + 'px';
+    });
+
+    function cursorFrame() {
+      cx += (mouseX - cx) * 0.11;
+      cy += (mouseY - cy) * 0.11;
+      curEl.style.left = cx + 'px';
+      curEl.style.top = cy + 'px';
+      requestAnimationFrame(cursorFrame);
+    }
+    cursorFrame();
+
+    document.querySelectorAll('a,button').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        curEl.style.width = '24px'; curEl.style.height = '24px';
+        curEl.style.background = 'rgba(255,255,255,0.08)';
+      });
+      el.addEventListener('mouseleave', () => {
+        curEl.style.width = '12px'; curEl.style.height = '12px';
+        curEl.style.background = 'transparent';
+      });
+    });
+
+    /* ================================================================
+       ORB — very slow follow
+       ================================================================ */
+    const orbEl = document.getElementById('orb');
+    let ox = innerWidth / 2, oy = innerHeight / 2;
+
+    function orbFrame() {
+      ox += (mouseX - ox) * 0.035;
+      oy += (mouseY - oy) * 0.035;
+      orbEl.style.left = ox + 'px';
+      orbEl.style.top = oy + 'px';
+      requestAnimationFrame(orbFrame);
+    }
+    orbFrame();
+
+    /* ================================================================
+       SCROLL REVEAL
+       ================================================================ */
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    document.querySelectorAll('.feat').forEach((el, i) => {
+      el.style.transitionDelay = (i * 0.055) + 's';
+    });
+    document.querySelectorAll('.tc').forEach((el, i) => {
+      el.style.transitionDelay = (i * 0.04) + 's';
+    });
+
+    /* ================================================================
+       PARTICLE SYSTEM — floating dots with connections
+       ================================================================ */
+    const canvas = document.getElementById('particles-canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    const particles = [];
+    const PARTICLE_COUNT = 80;
+    const CONNECT_DIST = 140;
+    const MOUSE_ATTRACT = 120;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.r = Math.random() * 1.5 + 0.5;
+        this.alpha = Math.random() * 0.4 + 0.1;
+      }
+      update() {
+        // Gentle mouse attraction
+        if (hasMoused) {
+          const dx = mouseX - this.x;
+          const dy = mouseY - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < MOUSE_ATTRACT && dist > 1) {
+            this.vx += (dx / dist) * 0.008;
+            this.vy += (dy / dist) * 0.008;
+          }
+        }
+        this.x += this.vx;
+        this.y += this.vy;
+        // Damping
+        this.vx *= 0.999;
+        this.vy *= 0.999;
+        // Wrap
+        if (this.x < 0) this.x = W;
+        if (this.x > W) this.x = 0;
+        if (this.y < 0) this.y = H;
+        if (this.y > H) this.y = 0;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push(new Particle());
+    }
+
+    function drawConnections() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECT_DIST) {
+            const alpha = (1 - dist / CONNECT_DIST) * 0.08;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function particleLoop() {
+      ctx.clearRect(0, 0, W, H);
+      particles.forEach(p => { p.update(); p.draw(); });
+      drawConnections();
+      requestAnimationFrame(particleLoop);
+    }
+    particleLoop();
+  </script>
+</body>
+
+</html>
